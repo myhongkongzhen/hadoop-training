@@ -1,0 +1,10 @@
+#hbase 进入
+hbase shell
+#hbase 创建表
+create 'tbl_yuelei1108','cf'
+#hbase 查看表
+list
+scan 'tbl_yuelei1108'
+
+#hbase导入表
+sqoop import --connect jdbc:mysql://slave02:3306/yinlian --table TBL_TRANS --hbase-table TBL_TRANS --column-family TRANS --hbase-row-key TRANS_DATETIME --hbase-create-table --username hive -password hive -m 1 --split-by SETT_DATE --null-string '\\N' --null-non-string '\\N'

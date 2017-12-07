@@ -1,0 +1,71 @@
+﻿#--------------操作提示-------
+#business:practise hadoop 
+#author:TerryLiao
+#date:
+#提示:请将sysdate换成练习操作日期yyyymmdd,
+#      yourname更改为你的名字拼音，例如TerryLiao
+#-------------------------------
+
+
+#创建当前日期的本地文件夹并产生数据文件
+mkdir -p /home/hadoop/20171205/
+echo '1 TerryLiao '> ~/$(date +%Y%m%d)/TerryLiao/TerryLiao.txt
+echo '2 TerryLiao '>> ~/$(date +%Y%m%d)/TerryLiao/TerryLiao.txt
+echo '2 TerryLiao '>> ~/$(date +%Y%m%d)/TerryLiao/TerryLiao.txt
+#在集群中创建目录
+hadoop fs -mkdir -p /20171205/TerryLiao
+#在集群中查看自己创建的目录
+hadoop fs -ls /20171205/
+#把本地文件传到集群中
+hadoop fs -put ~/$(date +%Y%m%d)/TerryLiao/TerryLiao.txt  /20171205/TerryLiao
+#把本地目录下（/home/hadoop/datasource/studentdata）相关数据文件传到集群中
+hadoop fs -put /home/hadoop/datasource/studentdata/* /20171205/TerryLiao
+
+#在集群中查看自己上传的文件
+hadoop fs -ls /20171205/TerryLiao
+
+#把集群中文件保存到本地指定目录
+hadoop fs -get /20171205/TerryLiao/TerryLiao.txt ~/20171205/TerryLiao/output
+hadoop fs -get /20171205/TerryLiao/* ~/20171205/TerryLiao/
+#在本地查看自己下载的文件
+ls ~/20171205/TerryLiao/output
+
+#集群文件检测命令
+hadoop fsck /20171205/TerryLiao/TerryLiao.txt
+
+#查看集群文件具体的属性信息并打印
+hadoop fs  -stat  "%o %r" /20171205/TerryLiao/TerryLiao.txt
+#根据以下提示查看文件的其他属性信息
+{HADOOP_HOME}/bin/hadoop fs –stat [format]
+下面列出了format的形式：
+%b：打印文件大小（目录为0）
+%n：打印文件名
+%o：打印block size 
+%r：打印备份数
+%y：打印UTC日期 yyyy-MM-dd HH:mm:ss
+%Y：打印自1970年1月1日以来的UTC微秒数
+%F：目录打印directory, 文件打印regular file
+当使用-stat选项但不指定format时候，只打印文件创建日期，相当于%y：
+
+#查看hdfs的集群状态命令(自己理解下对应的参数含义)：
+hadoop dfsadmin -report
+
+#查看hdfs的集群文件命令(自己理解下对应的参数含义)：
+hadoop fs -du /20171205/
+
+
+#归档集群文件到指定集群目录	
+hadoop archive -archiveName 	TerryLiao.har -p /20171205/TerryLiao /20171205/TerryLiao/output
+
+#拷贝归档文件到集群中自己创建的文件夹下
+hadoop distcp /20171205/TerryLiao/output/TerryLiao.har /20171205/TerryLiao
+
+
+-----运行mapreduce程序
+
+hadoop jar /home/hadoop/bigdata/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.7.2.jar  wordcount  /20171205/TerryLiao/TerryLiao.txt /20171205/TerryLiao/output1/
+
+
+hadoop fs -ls /20171205/TerryLiao/output1
+
+

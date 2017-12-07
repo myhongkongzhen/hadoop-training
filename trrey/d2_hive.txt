@@ -1,0 +1,158 @@
+﻿huifeng1018
+
+210.14.77.95:8888
+
+student02/20171201
+
+
+#--------------操作提示-------
+#business:practise hadoop 
+#author:TerryLiao
+#date:
+#提示:请将sysdate换成练习操作日期yyyymmdd,
+#      TerryLiao或TerryLiao更改为你的名字拼音，例如TerryLiao
+#-------------------------------
+
+----hive 各种表构建方式练习--
+
+----/home/hadoop/datasource/studentdata---
+Hive的建表
+1 Hive 创建内部表
+use huifeng1018;
+show tables;
+
+CREATE TABLE TerryLiao_stud_info (
+  stud_code string ,
+  stud_name string ,
+  stud_sex string COMMENT '性别',
+  birthday date ,
+  log_date date ,
+  orig_addr string ,
+  lev_date date ,
+  college_code string  COMMENT '学院编码',
+  college_name string ,
+  state string 
+) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;
+
+#查看表结构
+show create table TerryLiao_stud_info;
+#加载传到hdfs的数据到表
+load data inpath '/20171205/TerryLiao/stud_info.csv' into table huifeng1018.TerryLiao_stud_info;
+#查看对应表数据
+	
+2 外部表
+drop table if exists TerryLiao_external_stud_info;
+create external table TerryLiao_external_stud_info (
+stud_code string ,
+  stud_name string ,
+  stud_sex string COMMENT '性别',
+  birthday date ,
+  log_date date ,
+  orig_addr string ,
+  lev_date date ,
+  college_code string  COMMENT '学院编码',
+  college_name string ,
+  state string 
+)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE
+LOCATION '/20171205/TerryLiao/TerryLiao_external_stud_info';
+#拷贝数据到对应外部表目录
+hadoop fs -cp /20171205/TerryLiao/stud_info.csv /20171205/TerryLiao/TerryLiao_external_stud_info/
+#查看对应表数据
+select * from huifeng1018.TerryLiao_external_stud_info;
+
+3 退出hive进入shell客户端用sqoop命令创建表并导入数据
+#创建与mysql数据库中testdb.stud_info结构一样的hive表
+sqoop create-hive-table --connect jdbc:mysql://slave02:3306/testdb --table stud_info --username hive --password hive --hive-table huifeng1018.TerryLiao_stud_info_sqoo
+#导入mysql数据库中testdb.stud_info数据到hive表
+sqoop import  --connect jdbc:mysql://slave02:3306/testdb --table stud_info --username hive --password hive --hive-import --hive-table huifeng1018.TerryLiao_stud_info_sqoo -m 1 --target-dir /20171205/TerryLiao/temp3
+#查看对应表数据
+select * from huifeng1018.TerryLiao_stud_info_sqoo;
+ODL层表：
+drop table if exists  stg_TerryLiao_s_stud_info;
+create table  stg_TerryLiao_s_stud_info as
+select
+concat(college_code ,stud_code) as stud_id,
+stud_code   ,               
+stud_name   ,               
+stud_sex    ,               
+birthday    ,               
+log_date    ,               
+orig_addr   ,               
+lev_date    ,               
+college_code,               
+college_name,               
+state                                                                                                       
+from huifeng1018.TerryLiao_stud_info_sqoo;
+#查看对应表数据
+select * from stg_TerryLiao_s_stud_info;
+
+IDL层 数仓-维度层表
+create table huifeng1018.TerryLiao_dim_address_info (id int,city string,people_m double,gdp double,per_gdp double,per_gdp_f double) row format delimited fields terminated by ',' stored as textfile;
+#加载数据进hive,学员环境数据文件路径在/home/hadoop/data/stg_city.csv
+load data local inpath '/home/hadoop/20171205/TerryLiao/stg_city.csv' into table huifeng1018.TerryLiao_dim_address_info;
+
+
+
+IDL层 数仓事实表
+create table  TerryLiao_dw_stud_info as select 
+a.stud_id,a.stud_code,             
+a.stud_name ,         
+a.stud_sex ,               
+a.birthday,               
+a.log_date    ,               
+a.orig_addr   ,               
+a.lev_date    ,               
+a.college_code,a.college_name,a.state,b.id,b.people_m,b.gdp,b.per_gdp from stg_TerryLiao_s_stud_info a left outer join TerryLiao_dim_address_info b on a.orig_addr=b.city;
+
+ADL层
+Create table TerryLiao_dm_stud_info (
+Stud_id string,
+Name string,
+City string,
+City_desc string,
+Birthday string,
+Star string,
+Star_desc string)
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;
+
+drop table if exists TerryLiao_rpt_college_code_sum;
+Create table TerryLiao_rpt_college_code_sum
+ as select college_code,college_name,count(1) 
+ from TerryLiao_dw_stud_info group by college_code, college_name;
+
+#HIVE查询语句优化
+select * from TerryLiao_stud_info_sqoo;
+set hive.exec.parallel=true ，默认为false
+set hive.exec.parallel.thread.number=8;
+select * from TerryLiao_stud_info_sqoo;
+
+
+
+#参考城市维度表TerryLiao_dim_address_info理解Hive的维度模型设计思想，
+在Hive数据库的huifeng1018库中自己整理出一张生日星座性格特点的维度表
+TerryLiao_dim_xingzuo_info，必含的字段有（出生月日，星座，星座性格特点）,并加载对应数据进该维度表。
+#根据数据创建对应的维度表结构如下
+use huifeng1018;
+CREATE TABLE TerryLiao_dim_xingzuo_info_stg(
+  name string ,
+  shengri string ,
+  start_month int ,
+  end_month int ,
+  start_date int ,
+  end_date int ,
+  xingge string ,
+  guanlianxingzuo string ,
+  gouchengyuansu string ,
+  yanse string  ,
+  yingwen string 
+) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS TEXTFILE;
+#加载数据进入表结构
+load data local inpath '/home/hadoop/20171205/TerryLiao/xingzuo.txt' overwrite into table TerryLiao_dim_xingzuo_info_stg;
+#清洗掉含Null的数据，创建维度表语句如下：
+create table TerryLiao_dim_xingzuo_info as 
+select * from TerryLiao_dim_xingzuo_info_stg
+where xingge is not NULL;
+
+
+
